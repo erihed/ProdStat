@@ -11,8 +11,9 @@ library(forcats)
 library(RColorBrewer)
 library(readr)
 
+# Ändra datum och filreferenser här nedan.
 f <- "Data t.o.m 2020-11-30,"
-g <- "Data/SQL_PMT_day.csv"
+g <- "Data/SQL_BIO_TOT.csv"
 h <- "2020-11-30"
 data_ref2 <- paste(f, g)
 
@@ -52,8 +53,11 @@ Biokemi %>%
        caption = data_ref2) +
   my_theme
 
+# Ändrar formatet på columnen Godkännandedatum till Date.
 Biokemi$Godkännandedatum <- as.Date(Biokemi$Godkännandedatum)
 
+# Ändrar TESTNO för att plotta enskilda biokemianalyser.
+# Vill skapa funktion här så att endast analyt behöver skrivas in!
 Biokemi %>%
   filter(TESTNO == "P-Acylkarnitiner", Godkännandedatum <= h) %>% 
   group_by(ym) %>% 
