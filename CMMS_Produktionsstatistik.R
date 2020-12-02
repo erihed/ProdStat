@@ -11,9 +11,12 @@ library(forcats)
 library(RColorBrewer)
 library(readr)
 
-# Reading in raw data file from Starlims Analytics where I searched "TAT_"-flik then "Filtrera"-flik and then
+#' Använder SQLquery: CMMS_prod_stat_CoreAnalysis_ylva, CMMS_prod_stat_PMT_day och CMMS_prod_stat_PMT_month
+#' som finns under: H:\SQL Server Management Studio
+#' 
+#' Reading in raw data file from Starlims Analytics where I searched "TAT_"-flik then "Filtrera"-flik and then
 #' retrieve the "Order datum"-data.
-#' for our "kärnanalyser" sorted by "Aktivitetsnamn" in the "Filtrera"-flik from 2015-2020. Hämtas från SQL.
+#' for our "kärnanalyser" sorted by "Aktivitetsnamn" in the "Filtrera"-flik from 2015-2020. 
 #' 
 #' "Kärnanalyser consists of the following "Aktivitetsnamn":
 #' "M-Mitokondriell ATP-produktion"
@@ -27,10 +30,6 @@ library(readr)
 #' "U-Organiska syror ERNDIM"
 #' "U-Organiska syror screening"
 #' "U-Porfyrinprekursorer ALA/PBG (¤)"
-
-#' Data för alla biokemiska analyser
-Biokemi_201014 <- read_delim("Data/Biokemi_201014.csv", 
-                             ";", escape_double = FALSE, trim_ws = TRUE)
 
 #' Data för hur många remisser som ankommer PMT varje dag.
 SQL_PMT_day <- read_delim("Data/SQL_PMT_day.csv", 
@@ -60,26 +59,18 @@ b <- round(mean(SQL_PMT_day$Antal), 0)
 c <- "remisser/dag"
 d <- round(mean(SQL_PMT_tot$n), 0)
 e <- "remisser/månad"
-f <- "Data t.o.m 2020-10-30,"
+f <- "Data t.o.m 2020-11-30,"
 g <- " Data/SQL_PMT_day.csv"
-h <- "2020-10-30"
-
-# Create column month to hold labelled months
-Biokemi <- Biokemi_201105
-  Biokemi$ym <- as.yearmon(Biokemi$Godkännandedatum, label = TRUE)
-  
-  Biokemi$år <- year(Biokemi$Godkännandedatum)
-  
-  Biokemi$månad <- month(Biokemi$Godkännandedatum)
+h <- "2020-11-30"
 
 data_ref2 <- paste(f, g)
 
-prod <- read_delim("Data/SQL_201030.csv", 
+prod <- read_delim("Data/SQL_201202.csv", 
            ";", escape_double = FALSE, col_names = FALSE, 
            trim_ws = TRUE)
 
 # Datareferense som läggs till i caption på graferna
-data_ref <- "Data t.o.m 2020-10-30, Data/SQL200930.csv"
+data_ref <- "Data t.o.m 2020-11-30, Data/SQL201202.csv"
                          
 prod <- prod %>% 
   rename("ID" = "X1", "Aktivitetsnamn" = "X2", "Prov_taget" = "X3", "Prov_ank" = "X4", "Prov_reg" = "X5", "Körlista_påbörjad" = "X6", "Rapp_distr" = "X7", "Patpostnr" = "X8")
@@ -119,7 +110,7 @@ prod$Aktivitetsnamn[prod$Aktivitetsnamn == "U-Kreatinin"] <- "Krea"
 res_distr <- prod %>%
   select(Aktivitetsnamn, Rapp_distr) %>% 
   na.omit() %>% 
-  filter(Rapp_distr >= "2015-01-01", Rapp_distr <= "2020-10-30")
+  filter(Rapp_distr >= "2015-01-01", Rapp_distr <= "2020-11-30")
 
 # Use month() to tabulate sample arrival per month
 month(res_distr$Rapp_distr) %>% table()
@@ -275,31 +266,4 @@ res_distr %>%
 # Uppgift: Uppdatera med kurva för TAT från "registrerat" till utsvarat resultat. Använd
 # difftime(df$x, df$y, unit = c("days"))
 
-Biokemi_tot %>%
-  ggplot(aes(x = ym, y = n)) +
-  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
-  geom_line() +
-  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
-  labs(title ="Biokemi 2015-2020 (godkända)",
-       subtitle = "17 analyser",
-       x = "Månad",
-       y = "Antal",
-       caption = data_ref2) +
-  my_theme
 
-Biokemi$Godkännandedatum <- as.Date(Biokemi$Godkännandedatum)
-
-Biokemi %>%
-  filter(TESTNO == "P-Acylkarnitiner", Godkännandedatum <= "2020-10-30") %>% 
-  group_by(ym) %>% 
-  count() %>%
-  ggplot(aes(x = ym, y = n)) +
-  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
-  geom_line() +
-  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
-  labs(title ="P-Acylkarnitiner 2015-2020 (godkända)",
-       subtitle = "TAT(best.-distr.) = 9 dagar",
-       x = "Månad",
-       y = "Antal",
-       caption = data_ref2) +
-  my_theme
