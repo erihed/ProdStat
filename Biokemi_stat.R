@@ -11,13 +11,61 @@ library(forcats)
 library(RColorBrewer)
 library(readr)
 
-SQL_BIO_TOT <- read_delim("Data/SQL_BIO_TOT.csv", 
-                          ";", escape_double = FALSE,
-                          trim_ws = TRUE)
+f <- "Data t.o.m 2020-11-30,"
+g <- "Data/SQL_PMT_day.csv"
+h <- "2020-11-30"
+data_ref2 <- paste(f, g)
 
-SQL_BIO_TOT$Godkännandedatum <- as.Date(as.character(SQL_BIO_TOT$Godkännandedatum), format = "%Y-%m-%d")
-SQL_BIO_TOT$TESTNO <- as.numeric(as.double(SQL_BIO_TOT$TESTNO))
+#' Data för alla biokemiska analyser
+Biokemi_tot <- read_delim("Data/SQL_BIO_TOT.csv", 
+                          ";", escape_double = FALSE, trim_ws = TRUE)
 
+# Create column month to hold labelled months
+Biokemi <- Biokemi_tot
+Biokemi$ym <- as.yearmon(Biokemi$Godkännandedatum, label = TRUE)
 
-SQL_BIO_TOT$år <- year(SQL_BIO_TOT$Godkännandedatum) %>% 
-  summarize(TESTNO)
+Biokemi$år <- year(Biokemi$Godkännandedatum)
+
+Biokemi$månad <- month(Biokemi$Godkännandedatum)
+
+# ggplot theme
+my_theme <- theme(plot.title = element_text(hjust = 0.5),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_blank(),
+                  plot.subtitle = element_text(hjust = 0.5),
+                  text = element_text(size = 12),
+                  axis.text.x = element_text(angle = 90))
+
+# Count skapar n som sedan används för att plotten! Använder variabeln h för att tidigt ändra datumrangen.
+Biokemi %>%
+  filter(Godkännandedatum <= h) %>%
+  group_by(ym) %>% 
+  count() %>% 
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Biokemi 2015-2020 (godkända)",
+       subtitle = "17 analyser",
+       x = "Månad",
+       y = "Antal",
+       caption = data_ref2) +
+  my_theme
+
+Biokemi$Godkännandedatum <- as.Date(Biokemi$Godkännandedatum)
+
+Biokemi %>%
+  filter(TESTNO == "P-Acylkarnitiner", Godkännandedatum <= h) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="P-Acylkarnitiner 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 9 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = data_ref2) +
+  my_theme
+
