@@ -76,3 +76,21 @@ Biokemi %>%
        caption = data_ref2) +
   my_theme
 
+Biokemi %>%
+  filter(TESTNO == "U-Organiska syror ERNDIM" | 
+           TESTNO == "U-Organiska syror behandlingskontroll" |
+         TESTNO == "U-Organiska syror screening", Godkännandedatum <= h) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Organiska syror 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 9 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = data_ref2) +
+  my_theme
+
+unique(Biokemi$TESTNO)
