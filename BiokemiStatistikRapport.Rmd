@@ -1,0 +1,712 @@
+---
+title: "Biokemi statistik"
+author: "*Av Erik Hedman*"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+params:
+  data_file: Data/SQL_BIO_TOT.csv
+  data_caption: Data t.o.m 2020-11-30
+  start_date: 2015-01-01
+  end_date: 2020-11-30
+  sql_query: CMMS_prod_stat_BiokemiAnalyser
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r data, include = FALSE}
+library (tidyverse)
+library(here)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+library(lubridate)
+library(purrr)
+library(extrafont)
+library(zoo)
+library(forcats)
+library(RColorBrewer)
+library(readr)
+
+Biokemi_tot <- read_delim("Data/SQL_BIO_TOT.csv", 
+                          ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r ggplot theme, include = FALSE}
+my_theme <- theme(plot.title = element_text(hjust = 0.5),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_blank(),
+                  plot.subtitle = element_text(hjust = 0.5),
+                  text = element_text(size = 12),
+                  axis.text.x = element_text(angle = 90))
+```
+## Datakälla
+Den data som ligger till grunden för rapporten togs fram från Advanced Analytics (StarLims) med SQL query: **`r params$sql_query`** som ligger i författarens personliga mapp under *H:\SQL Server Management Studio*.
+
+**Förklaringar:**
+
+(Godkända) = controllern har godkänt provet.
+
+TAT = turn-around-time
+
+best.-distr = tiden från att läkaren gjort beställningen tills att provsvaret är distribuerat.
+
+## Analyser
+
+Det här är produktionsstatistiksrapporten för biokemilaboratoriet på CMMS.
+
+Rapporten omfattar tidsperioden `r params$start_date` till `r params$end_date` för följande analyser:
+
+1. Acylkarnitiner
+2. Organiska syror
+3. Oxalat
+4. Karnitin
+5. VLCFA
+6. Homocystein/metionin
+7. Puriner & pyrimidiner
+8. Orotsyra
+9. Alditoler
+10. Sialinsyra
+11. Koenzym Q10
+12. Pipekolsyra
+13. Fosfolipider
+14. Kreatinsyntesmetaboliter
+15. Sulfatider
+
+
+
+### Alla analyser
+```{r Totalanalys, echo = FALSE}
+# Create column month to hold labelled months
+Biokemi <- Biokemi_tot
+Biokemi$ym <- as.yearmon(Biokemi$Godkännandedatum, label = TRUE)
+Biokemi$år <- year(Biokemi$Godkännandedatum)
+Biokemi$månad <- month(Biokemi$Godkännandedatum)
+Biokemi$Godkännandedatum <- as.Date(Biokemi$Godkännandedatum)
+
+Biokemi %>%
+  filter(Godkännandedatum <= params$end_date) %>%
+  group_by(ym) %>% 
+  count() %>% 
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title = "Totalt antal prover per månad 2015-2021 (godkända av controller)",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+
+yav <- Biokemi %>% 
+  filter(Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Acylkarnitiner
+```{r Acylkarnitiner, echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Acylkarnitiner", Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="P-Acylkarnitiner 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 9 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Acylkarnitiner", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Acylkarnitiner", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Organiska syror
+
+```{r organiska syror, echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Organiska syror ERNDIM" | 
+           TESTNO == "U-Organiska syror behandlingskontroll" | 
+           TESTNO == "U-Organiska syror screening", 
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Organiska syror 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 9 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Organiska syror ERNDIM" | 
+           TESTNO == "U-Organiska syror behandlingskontroll" | 
+           TESTNO == "U-Organiska syror screening", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Organiska syror ERNDIM" | 
+           TESTNO == "U-Organiska syror behandlingskontroll" | 
+           TESTNO == "U-Organiska syror screening", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Oxalat
+I sammanställningen ingår U-Oxalat tillsammans med glykolat och glycerat och ERNDIMprover.
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Oxalat Glycerat Glykolat" | 
+           TESTNO == "U-Oxalat" |
+           TESTNO == "U-Oxalat (Glycerat Glykolat) ERNDIM", 
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="U-Oxalat 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 24 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Oxalat Glycerat Glykolat" | 
+           TESTNO == "U-Oxalat" |
+           TESTNO == "U-Oxalat (Glycerat Glykolat) ERNDIM", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Oxalat Glycerat Glykolat" | 
+           TESTNO == "U-Oxalat" |
+           TESTNO == "U-Oxalat (Glycerat Glykolat) ERNDIM", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Karnitin
+
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Karnitin, fritt+förestrat (¤)" | 
+           TESTNO == "P-Karnitin, fritt och totalt (¤)" | 
+           TESTNO == "P-Karnitin, fritt ERNDIM (¤)" |
+           TESTNO ==  "U-Karnitin fritt och totalt (¤)" | 
+           TESTNO == "U-Karnitin ERNDIM (¤)" |
+           TESTNO == "U-Karnitin fritt+förestrat (¤)", 
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="U-Oxalat 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 12 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Karnitin, fritt+förestrat (¤)" | 
+           TESTNO == "P-Karnitin, fritt och totalt (¤)" | 
+           TESTNO == "P-Karnitin, fritt ERNDIM (¤)" |
+           TESTNO ==  "U-Karnitin fritt och totalt (¤)" | 
+           TESTNO == "U-Karnitin ERNDIM (¤)" |
+           TESTNO == "U-Karnitin fritt+förestrat (¤)", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Karnitin, fritt+förestrat (¤)" | 
+           TESTNO == "P-Karnitin, fritt och totalt (¤)" | 
+           TESTNO == "P-Karnitin, fritt ERNDIM (¤)" |
+           TESTNO ==  "U-Karnitin fritt och totalt (¤)" | 
+           TESTNO == "U-Karnitin ERNDIM (¤)" |
+           TESTNO == "U-Karnitin fritt+förestrat (¤)", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### VLCFA
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Fettsyror långkedjiga ERNDIM" | 
+           TESTNO == "P-Fettsyror, mycket långkedjiga",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="VLCFA 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 8 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Fettsyror långkedjiga ERNDIM" | 
+           TESTNO == "P-Fettsyror, mycket långkedjiga", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Fettsyror långkedjiga ERNDIM" | 
+           TESTNO == "P-Fettsyror, mycket långkedjiga", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Homocystein/metionin
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Homocystein Metionin (¤)" | 
+           TESTNO == "P-Homocystein (Metionin) ERNDIM (¤)" |
+         TESTNO == "P-Homocystein (Metionin) DEKS (¤)" |
+           TESTNO == "P-(Homocystein) Metionin ERNDIM (¤)",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Hcy/Met 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 9 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Homocystein Metionin (¤)" | 
+           TESTNO == "P-Homocystein (Metionin) ERNDIM (¤)" |
+         TESTNO == "P-Homocystein (Metionin) DEKS (¤)" |
+           TESTNO == "P-(Homocystein) Metionin ERNDIM (¤)", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Homocystein Metionin (¤)" | 
+           TESTNO == "P-Homocystein (Metionin) ERNDIM (¤)" |
+         TESTNO == "P-Homocystein (Metionin) DEKS (¤)" |
+           TESTNO == "P-(Homocystein) Metionin ERNDIM (¤)", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Puriner & pyrimidiner
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Puriner Pyrimidiner" | 
+           TESTNO == "U-Puriner Pyrimidiner ERNDIM" |
+         TESTNO == "U-Puriner Pyrimidiner (¤)",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="P&P 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 22 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Puriner Pyrimidiner" | 
+           TESTNO == "U-Puriner Pyrimidiner ERNDIM" |
+         TESTNO == "U-Puriner Pyrimidiner (¤)", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Puriner Pyrimidiner" | 
+           TESTNO == "U-Puriner Pyrimidiner ERNDIM" |
+         TESTNO == "U-Puriner Pyrimidiner (¤)", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Orotsyra
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Orotat ERNDIM" | 
+           TESTNO == "U-Orotat",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Orotsyra 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 11 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Orotat ERNDIM" | 
+           TESTNO == "U-Orotat", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Orotat ERNDIM" | 
+           TESTNO == "U-Orotat", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Alditoler
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Alditoler ERNDIM" |
+           TESTNO == "U-Alditoler",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Alditoler 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 21 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Alditoler ERNDIM" |
+           TESTNO == "U-Alditoler", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Alditoler ERNDIM" |
+           TESTNO == "U-Alditoler", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Sialinsyra
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Sialinsyra" | 
+           TESTNO == "U-Sialinsyra ERNDIM",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Sialinsyra 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 21 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Sialinsyra" | 
+           TESTNO == "U-Sialinsyra ERNDIM", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Sialinsyra" | 
+           TESTNO == "U-Sialinsyra ERNDIM", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Koenzym Q10
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "M-Koenzym Q10",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Koenzym Q10 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 69 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "M-Koenzym Q10", Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "M-Koenzym Q10", Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Pipekolsyra
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Pipekolsyra",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Pipekolsyra 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 11 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Pipekolsyra", Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Pipekolsyra", Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Fosfolipider
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Fettsyrasammansättning, fosfolipider",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Fosfolipider 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 37 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Fettsyrasammansättning, fosfolipider", Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Fettsyrasammansättning, fosfolipider", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Kreatinsyntesmetaboliter
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "P-Kreatinsyntesmetaboliter"|
+         TESTNO == "P-Kreatinsyntesmetaboliter ERNDIM",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Kreatinsyntesmetaboliter 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 20 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "P-Kreatinsyntesmetaboliter"|
+         TESTNO == "P-Kreatinsyntesmetaboliter ERNDIM", Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "P-Kreatinsyntesmetaboliter"|
+         TESTNO == "P-Kreatinsyntesmetaboliter ERNDIM",
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/månad.
+
+**Medelvärde 2020** = `r yav` prover/månad.
+
+### Sulfatider
+
+```{r echo = FALSE}
+Biokemi %>%
+  filter(TESTNO == "U-Sulfatider",
+         Godkännandedatum <= params$end_date) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="Sulfatider 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 34 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = params$data_caption) +
+  my_theme
+
+av <- Biokemi %>%
+  filter(TESTNO == "U-Sulfatider", 
+         Godkännandedatum <= params$end_date) %>% 
+  count(ym) %>%
+  summarize(Mean = round(mean(n), digits = 0))
+yav <- Biokemi %>% 
+  filter(TESTNO == "U-Sulfatider", 
+         Godkännandedatum >= "2020-01-01") %>% 
+  count(ym) %>% 
+  summarize(Mean = round(mean(n), digits = 0))
+```
+
+Medelvärde = `r av` prover/år.
+
+**Medelvärde 2020** = `r yav` prover/år.

@@ -93,4 +93,21 @@ Biokemi %>%
        caption = data_ref2) +
   my_theme
 
+Biokemi %>%
+  filter(TESTNO == "U-Oxalat Glycerat Glykolat" | 
+           TESTNO == "U-Oxalat" |
+           TESTNO == "U-Oxalat (Glycerat Glykolat) ERNDIM", Godkännandedatum <= h) %>% 
+  group_by(ym) %>% 
+  count() %>%
+  ggplot(aes(x = ym, y = n)) +
+  geom_point(aes(x = ym, y = n), colour = "black", fill = "#4535AA", size = 1.5) +
+  geom_line() +
+  geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
+  labs(title ="U-Oxalat 2015-2020 (godkända)",
+       subtitle = "TAT(best.-distr.) = 24 dagar",
+       x = "Månad",
+       y = "Antal",
+       caption = data_ref2) +
+  my_theme
+
 unique(Biokemi$TESTNO)
