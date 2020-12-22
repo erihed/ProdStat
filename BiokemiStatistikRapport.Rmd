@@ -17,7 +17,7 @@ params:
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 ```
 
 
@@ -88,10 +88,12 @@ Rapporten omfattar tidsperioden `r params$start_date` till `r params$end_date` f
 Biokemi <- Biokemi_tot
 Biokemi$ym <- as.yearmon(Biokemi$Godkännandedatum, label = TRUE)
 Biokemi$år <- year(Biokemi$Godkännandedatum)
-Biokemi$månad <- month(Biokemi$Godkännandedatum)
+Biokemi$månad <- month(Biokemi$Godkännandedatum, label = TRUE)
+Biokemi$dag <- wday(Biokemi$Godkännandedatum, label = TRUE)
+Biokemi$timme <- as.factor(hour(Biokemi$Godkännandedatum))
 Biokemi$Godkännandedatum <- as.Date(Biokemi$Godkännandedatum)
 Biokemi$Aktiveringsdatum <- as.Date(Biokemi$Aktiveringsdatum)
-Biokemi$TAT <- difftime(Biokemi$Godkännandedatum, Biokemi$Aktiveringsdatum, units = "days")
+Biokemi$TAT <- as.numeric(Biokemi$Godkännandedatum - Biokemi$Aktiveringsdatum)
 
 Biokemi %>%
   filter(Godkännandedatum <= params$end_date) %>%
@@ -121,6 +123,21 @@ yav <- Biokemi %>%
 Medelvärde = `r av` prover/månad.
 
 **Medelvärde 2020** = `r yav` prover/månad.
+
+```{r All-heatmap, echo = FALSE}
+Biokemi %>%
+  filter(Godkännandedatum >= "2015-01-01") %>%
+  group_by(år, dag, timme) %>% 
+  complete(timme) %>% 
+  count() %>% 
+  ggplot(aes(x = dag, y = timme, fill = n)) +
+  geom_tile() +
+  scale_y_discrete(limits = rev(levels(Biokemi$timme))) +
+  scale_fill_distiller(direction = + 1) +
+  facet_wrap( ~ år)
+  
+```
+
 
 ### Acylkarnitiner
 ```{r Acylkarnitiner trendplot, echo = FALSE}
@@ -159,8 +176,8 @@ Biokemi %>%
          Godkännandedatum >= "2020-01-01") %>%
   group_by(ym) %>% 
   summarize(TAT = round(mean(TAT), digits = 0)) %>% 
-  ggplot(aes(x = ym, y = as.numeric(TAT))) +
-  geom_point(aes(x = ym, y = as.numeric(TAT)), colour = "black", fill = "#4535AA", size = 1.5) +
+  ggplot(aes(x = ym, y = (TAT))) +
+  geom_point(aes(x = ym, y = (TAT)), colour = "black", fill = "#4535AA", size = 1.5) +
   geom_line() +
   expand_limits(y = 0) +
   geom_smooth(method = "loess", formula = y ~ x, size = 1, alpha = 0.5) +
