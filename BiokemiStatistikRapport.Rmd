@@ -147,7 +147,7 @@ Biokemi %>%
   facet_wrap( ~ år) +
   labs(title = "Majoriteten av provresultaten kommer idag till läkarna 
        innan kl 16 på fredagar",
-       x = "Dag",
+       x = "Veckodag",
        y = "Timme",
        fill = "Antal",
        caption = "Heatmap som visar när controllerfunktionen på biokemi godkänner analyser. 
