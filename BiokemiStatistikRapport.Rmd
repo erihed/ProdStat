@@ -39,13 +39,22 @@ Biokemi_tot <- read_delim("Data/SQL_BIO_TOT_201218.csv",
                           ";", escape_double = FALSE, trim_ws = TRUE)
 ```
 
-```{r ggplot theme, include = FALSE}
+```{r ggplot my_theme, include = FALSE}
 my_theme <- theme(plot.title = element_text(hjust = 0.5),
                   axis.title.x = element_blank(),
                   axis.title.y = element_blank(),
                   plot.subtitle = element_text(hjust = 0.5),
                   text = element_text(size = 12),
                   axis.text.x = element_text(angle = 90))
+```
+
+```{r ggplot heatmap theme, include = FALSE}
+hm_theme <- theme(plot.title = element_text(hjust = 0.5),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_blank(),
+                  plot.subtitle = element_text(hjust = 0.5),
+                  text = element_text(size = 12),
+                  axis.text.x = element_text(angle = 0))
 ```
 ## Datakälla
 Den data som ligger till grunden för rapporten togs fram från Advanced Analytics (StarLims) med SQL query: **`r params$sql_query`** som ligger i författarens personliga mapp under *H:\SQL Server Management Studio*. Filen är sparad i CSV (UTF-8) format med rubriker.
@@ -124,6 +133,7 @@ Medelvärde = `r av` prover/månad.
 
 **Medelvärde 2020** = `r yav` prover/månad.
 
+
 ```{r All-heatmap, echo = FALSE}
 Biokemi %>%
   filter(Godkännandedatum >= "2015-01-01") %>%
@@ -134,8 +144,16 @@ Biokemi %>%
   geom_tile() +
   scale_y_discrete(limits = rev(levels(Biokemi$timme))) +
   scale_fill_distiller(direction = + 1) +
-  facet_wrap( ~ år)
-  
+  facet_wrap( ~ år) +
+  labs(title = "Majoriteten av provresultaten kommer idag till läkarna 
+       innan kl 16 på fredagar",
+       x = "Dag",
+       y = "Timme",
+       fill = "Antal",
+       caption = "Heatmap som visar när controllerfunktionen på biokemi godkänner analyser. 
+       Data omfattar perioden 2015-2020") +
+hm_theme
+
 ```
 
 
