@@ -16,7 +16,7 @@ f <- "Data t.o.m 2020-11-30,"
 g <- "Data/SQL_BIO_TOT.csv"
 h <- "2020-11-30"
 data_ref2 <- paste(f, g)
-
+# testing
 #' Data för alla biokemiska analyser.
 #' Använder mig av query: CMMS_prod_stat_BiokemiAnalyser som ligger
 #' under H:\SQL Server Management Studio
