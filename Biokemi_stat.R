@@ -21,7 +21,7 @@ data_ref2 <- paste(f, g)
 #' Använder mig av query: CMMS_prod_stat_BiokemiAnalyser som ligger
 #' under H:\SQL Server Management Studio
 #' 
-Biokemi_tot <- read_delim("Data/SQL_BIO_TOT.csv", 
+Biokemi_tot <- read_delim("Data/SQL_BIO_TOT_201218.csv", 
                           ";", escape_double = FALSE, trim_ws = TRUE)
 
 # Create column month to hold labelled months
@@ -31,6 +31,8 @@ Biokemi$ym <- as.yearmon(Biokemi$Godkännandedatum, label = TRUE)
 Biokemi$år <- year(Biokemi$Godkännandedatum)
 
 Biokemi$månad <- month(Biokemi$Godkännandedatum)
+Biokemi$Aktiveringsdatum <- as.Date(Biokemi$Aktiveringsdatum)
+Biokemi$TAT <- difftime(Biokemi$Godkännandedatum, Biokemi$Aktiveringsdatum, units = "days")
 
 # ggplot theme
 my_theme <- theme(plot.title = element_text(hjust = 0.5),
